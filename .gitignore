@@ -28,3 +28,6 @@ frontend-checkpoint-20261108/
 frontend/src/App.tsx.backup
 frontend/src/App.tsx.before-*
 frontend/src/App.tsx.encoding-backup-*
+
+# Generated ARM templates from Bicep
+infrastructure/bicep/*.json

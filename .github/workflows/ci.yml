@@ -59,3 +59,17 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: npm run build
+
+  bicep-validation:
+    name: Bicep Infrastructure Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Bicep CLI
+        run: az bicep install
+
+      - name: Compile Bicep template
+        run: az bicep build --file infrastructure/bicep/main.bicep
