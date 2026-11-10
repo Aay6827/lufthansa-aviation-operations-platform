@@ -2,6 +2,8 @@
 param location string = resourceGroup().location
 
 @description('Name of the Azure Container Apps environment.')
+@minLength(2)
+@maxLength(60)
 param environmentName string = 'aeroops-container-env'
 
 @description('Project metadata.')
