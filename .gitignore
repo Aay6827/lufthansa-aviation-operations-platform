@@ -1,0 +1,30 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+.env
+*.db
+.idea/
+.vscode/
+.DS_Store
+terraform/.terraform/
+terraform/*.tfstate*
+
+# Frontend dependencies and build output
+frontend/node_modules/
+frontend/dist/
+
+# Local environment files
+.env.*
+!.env.example
+
+# Local logs and temporary project backups
+*.log
+work-order-number-backup/
+work-order-number-backup-20261108/
+frontend-checkpoint-20261108/
+
+# Temporary frontend source backups
+frontend/src/App.tsx.backup
+frontend/src/App.tsx.before-*
+frontend/src/App.tsx.encoding-backup-*
