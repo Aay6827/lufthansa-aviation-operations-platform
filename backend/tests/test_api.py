@@ -430,3 +430,103 @@ def test_terminal_work_order_status_cannot_be_changed(
     )
 
     assert response.status_code == 409
+
+
+def test_work_order_status_filter(client):
+    aircraft = client.post("/api/v1/aircraft", json={
+        "registration": "D-STATUS01",
+        "aircraft_type": "A320neo",
+        "manufacturer": "Airbus",
+    }).json()
+
+    open_order = client.post("/api/v1/work-orders", json={
+        "aircraft_id": aircraft["id"],
+        "title": "Inspect landing gear",
+        "due_date": "2027-01-10",
+    }).json()
+
+    in_progress_order = client.post("/api/v1/work-orders", json={
+        "aircraft_id": aircraft["id"],
+        "title": "Inspect hydraulic system",
+        "due_date": "2027-01-20",
+    }).json()
+
+    client.patch(
+        f"/api/v1/work-orders/{in_progress_order['id']}",
+        json={"status": "in_progress"},
+    )
+
+    response = client.get(
+        "/api/v1/work-orders",
+        params={"status_filter": "in_progress"},
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert open_order["id"] not in [
+        item["id"] for item in response.json()
+    ]
+    assert response.json()[0]["id"] == in_progress_order["id"]
+    assert response.json()[0]["status"] == "in_progress"
+
+
+def test_work_order_status_filter_rejects_invalid_status(client):
+    response = client.get(
+        "/api/v1/work-orders",
+        params={"status_filter": "maintenance"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid work order status filter"
+
+
+def test_overdue_filter_excludes_completed_and_cancelled_orders(client):
+    aircraft = client.post("/api/v1/aircraft", json={
+        "registration": "D-OVERDUE01",
+        "aircraft_type": "A320neo",
+        "manufacturer": "Airbus",
+    }).json()
+
+    overdue_open = client.post("/api/v1/work-orders", json={
+        "aircraft_id": aircraft["id"],
+        "title": "Overdue open inspection",
+        "due_date": "2020-01-01",
+    }).json()
+
+    overdue_completed = client.post("/api/v1/work-orders", json={
+        "aircraft_id": aircraft["id"],
+        "title": "Completed overdue inspection",
+        "due_date": "2020-01-02",
+    }).json()
+
+    overdue_cancelled = client.post("/api/v1/work-orders", json={
+        "aircraft_id": aircraft["id"],
+        "title": "Cancelled overdue inspection",
+        "due_date": "2020-01-03",
+    }).json()
+
+    client.patch(
+        f"/api/v1/work-orders/{overdue_completed['id']}",
+        json={"status": "in_progress"},
+    )
+    client.patch(
+        f"/api/v1/work-orders/{overdue_completed['id']}",
+        json={"status": "completed"},
+    )
+
+    client.patch(
+        f"/api/v1/work-orders/{overdue_cancelled['id']}",
+        json={"status": "cancelled"},
+    )
+
+    response = client.get(
+        "/api/v1/work-orders",
+        params={"overdue_only": True},
+    )
+
+    assert response.status_code == 200
+    returned_ids = [item["id"] for item in response.json()]
+
+    assert overdue_open["id"] in returned_ids
+    assert overdue_completed["id"] not in returned_ids
+    assert overdue_cancelled["id"] not in returned_ids
