@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+import pytest
 
 
 def test_health_endpoints(client):
@@ -329,3 +330,103 @@ def test_work_order_sorting_rejects_invalid_field(client):
     )
 
     assert response.status_code == 422
+
+
+
+@pytest.mark.parametrize(
+    ("initial_status", "next_status"),
+    [
+        ("open", "cancelled"),
+        ("in_progress", "cancelled"),
+        ("blocked", "cancelled"),
+    ],
+)
+def test_work_order_allows_cancellation(
+    client, initial_status, next_status
+):
+    aircraft = client.post("/api/v1/aircraft", json={
+        "registration": "D-CANCEL01",
+        "aircraft_type": "A320neo",
+        "manufacturer": "Airbus",
+    }).json()
+
+    work_order = client.post("/api/v1/work-orders", json={
+        "aircraft_id": aircraft["id"],
+        "title": "Test work-order cancellation",
+        "due_date": date.today().isoformat(),
+    }).json()
+
+    work_order_id = work_order["id"]
+
+    if initial_status != "open":
+        response = client.patch(
+            f"/api/v1/work-orders/{work_order_id}",
+            json={"status": "in_progress"},
+        )
+        assert response.status_code == 200
+
+    if initial_status == "blocked":
+        response = client.patch(
+            f"/api/v1/work-orders/{work_order_id}",
+            json={"status": "blocked"},
+        )
+        assert response.status_code == 200
+
+    response = client.patch(
+        f"/api/v1/work-orders/{work_order_id}",
+        json={"status": next_status},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == next_status
+
+
+@pytest.mark.parametrize(
+    ("initial_status", "next_status"),
+    [
+        ("cancelled", "in_progress"),
+        ("cancelled", "completed"),
+        ("completed", "in_progress"),
+        ("completed", "cancelled"),
+    ],
+)
+def test_terminal_work_order_status_cannot_be_changed(
+    client, initial_status, next_status
+):
+    aircraft = client.post("/api/v1/aircraft", json={
+        "registration": "D-TERMINAL01",
+        "aircraft_type": "A320neo",
+        "manufacturer": "Airbus",
+    }).json()
+
+    work_order = client.post("/api/v1/work-orders", json={
+        "aircraft_id": aircraft["id"],
+        "title": "Test terminal work-order status",
+        "due_date": date.today().isoformat(),
+    }).json()
+
+    work_order_id = work_order["id"]
+
+    if initial_status == "completed":
+        client.patch(
+            f"/api/v1/work-orders/{work_order_id}",
+            json={"status": "in_progress"},
+        )
+        response = client.patch(
+            f"/api/v1/work-orders/{work_order_id}",
+            json={"status": "completed"},
+        )
+        assert response.status_code == 200
+    else:
+        response = client.patch(
+            f"/api/v1/work-orders/{work_order_id}",
+            json={"status": "cancelled"},
+        )
+        assert response.status_code == 200
+
+    response = client.patch(
+        f"/api/v1/work-orders/{work_order_id}",
+        json={"status": next_status},
+    )
+
+    assert response.status_code == 409
